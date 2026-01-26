@@ -28,7 +28,7 @@ Aplicativo que escaneia pseudocódigos em blocos (algoritmos físicos) a partir 
 - **Expo**
 - **JavaScript**
 
-Interface onde o usuário captura ou seleciona a imagem (Android/iOS) e envia para o back-end.
+Interface onde o usuário seleciona ou captura a imagem (Android/iOS) e envia para o back-end.
 
 ### Back-end
 
