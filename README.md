@@ -9,7 +9,7 @@
 ![Ollama](https://img.shields.io/badge/Ollama-7B2CBF?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-Aplicativo que escaneia pseudocódigos em blocos (algoritmos físicos) a partir de imagens e retorna o **código equivalente em Python** junto com a **solução (saída da execução)**.
+Aplicativo que escaneia pseudocódigos em blocos (algoritmos físicos) a partir de imagens e retorna o código equivalente em **Python** junto com a **saída da execução**.
 
 ## Funcionalidades
 
@@ -24,18 +24,18 @@ Aplicativo que escaneia pseudocódigos em blocos (algoritmos físicos) a partir 
 
 ### Front-end
 
-- **React Native**
-- **Expo**
-- **JavaScript**
+- React Native
+- Expo
+- JavaScript
 
 Interface onde o usuário seleciona ou captura a imagem (Android/iOS) e envia para o back-end.
 
 ### Back-end
 
-- **Python**
-- **EasyOCR**
-- **OpenCV**
-- **Ollama**
+- Python
+- EasyOCR
+- OpenCV
+- Ollama
 
 Fluxo do back-end:
 
