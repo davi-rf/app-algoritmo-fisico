@@ -1,40 +1,32 @@
-import tkinter as tk
-from tkinter import filedialog
-import cv2
+from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 import easyocr
+import cv2
+import tempfile
+import subprocess
+import os
+import uuid
 
+app = FastAPI()
 
-def select_image():
-    try:
-        root = tk.Tk()
-        root.withdraw()
-        caminho = filedialog.askopenfilename(
-            title='Selecione uma imagem',
-            filetypes=[('Imagens', '*.jpg *.jpeg *.png *.bmp *.tiff *.tif *.webp *.gif')]
-        )
-        if caminho:
-            return caminho
-    except Exception:
-        pass
-    return input('Digite o caminho completo da imagem: ').strip()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
 
+reader = easyocr.Reader(['pt'], gpu=False)
 
-def normalize_image(caminho):
-    img = cv2.imread(caminho)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(2.0, (8, 8))
-    gray = clahe.apply(gray)
-
-    out = 'imagem_normalizada.png'
-    cv2.imwrite(out, gray)
-    return out
-
-
-def gerar_texto(results, y_threshold=25):
+def organizar_linhas(results, y_threshold=25):
+    '''
+    Organiza o texto OCR respeitando linhas e ordem horizontal.
+    '''
     linhas = []
 
     for bbox, txt, _ in results:
         y = sum(p[1] for p in bbox) / 4
+
         for linha in linhas:
             if abs(linha['y'] - y) < y_threshold:
                 linha['itens'].append((bbox, txt))
@@ -49,27 +41,53 @@ def gerar_texto(results, y_threshold=25):
         linha['itens'].sort(key=lambda t: t[0][0][0])
         texto_final.append(' '.join(t[1] for t in linha['itens']))
 
-    return texto_final
+    return '\n'.join(texto_final)
 
 
-def read_img(caminho):
-    reader = easyocr.Reader(['pt'], gpu=False)
-    results = reader.readtext(
-        caminho,
-        detail=1,
-        contrast_ths=0.05,
-        adjust_contrast=0.7,
-        decoder='greedy'
+@app.post('/convert')
+async def convert(file: UploadFile = File(...)):
+    temp_img = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+    temp_img.write(await file.read())
+    temp_img.close()
+
+    img = cv2.imread(temp_img.name)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    cv2.imwrite(temp_img.name, gray)
+
+    results = reader.readtext(temp_img.name)
+    pseudocodigo = organizar_linhas(results)
+
+    prompt = f'''
+Converta o pseudocódigo abaixo para Python válido.
+Retorne SOMENTE o código Python.
+
+Pseudocódigo:
+{pseudocodigo}
+'''
+
+    proc = subprocess.run(
+        ['ollama', 'run', 'phi3'],
+        input=prompt,
+        text=True,
+        capture_output=True
     )
-    return gerar_texto(results)
 
+    python_code = proc.stdout.strip()
 
-caminho = select_image()
+    py_file = f'/tmp/{uuid.uuid4()}.py'
+    with open(py_file, 'w', encoding='utf-8') as f:
+        f.write(python_code)
 
-if caminho:
-    img = normalize_image(caminho)
-    blocos = read_img(img)
+    exec_proc = subprocess.run(
+        ['python', py_file],
+        capture_output=True,
+        text=True
+    )
 
-    with open('final_txt.txt', 'w', encoding='utf-8') as f:
-        f.write('\n'.join(blocos))
-else: print('Nenhuma imagem selecionada.')
+    os.unlink(temp_img.name)
+    os.unlink(py_file)
+
+    return {
+        'python': python_code,
+        'saida': exec_proc.stdout or exec_proc.stderr
+    }
